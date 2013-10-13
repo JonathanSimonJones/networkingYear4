@@ -1,0 +1,3 @@
+Write large message handler
+Do all fixme's 
+Make server send back a capitalised (or reversed) version of the message
