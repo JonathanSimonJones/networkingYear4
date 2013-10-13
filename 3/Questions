@@ -1,0 +1,5 @@
+Questions
+
+Stick to using c styled string or interchange? Started to use cin in client anyway.
+Best delim character? \0 Not so helpful as you get artifacts
+while loop best choice? Add saftey checks?
