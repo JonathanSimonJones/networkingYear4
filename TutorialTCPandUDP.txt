@@ -1,0 +1,55 @@
+TCP setup:
+
+1. 	Call WSAStartup() which initialise the Windows socket library 
+2. 	Create socket variable and initalise using call to socket(), this takes 
+	(while not limited too) the address family sepcification which 
+	in our case is the IP version (?Is this network layer?), then the type 
+	specification (TCP), then the protocol
+3.	Fill out sockaddr struct with the address family structure and the IP address
+	, and the port number which should be TCP/IP network byte order (which is 
+	big-endian)
+4. 	Then use bind(a socket (SOCKET), pointer to socket address structure with a 
+	local address to assign to bound socket, length in bytes of value pointed to 
+	by the name parameter) to bind a local address (an address on the machine in use) 
+	with a socket
+5. 	Then call listen (a socket, maxium length of a queue of pending connections)
+	does not change block, changes state
+6. 	Create a loop to listen for incoming connections
+7.	Create a new socket which hold information about the client and call accept
+	(a socket, sock address structure too fill with client info, size of address 
+	structure) to listen for client connectons and fill in the socket. 
+	?Is this blocking? 
+8. 	Then use recv(the client socket, char buffer, size of message, flags) and 
+	send(client socket) to communicate over the network 
+9.	Upon close call closesocket(the client socket) on the client socket
+10.	Then close the local socket closesocket(the server socket)
+11.	Finally WSACleanup() too clean up the Windows Socket library
+
+UDP setup: 
+
+1. 	Call WSAStartup() which initialise the Windows socket library 
+2. 	Create socket varibale and initalise using call to socket(), 
+	this takes (while not limited too) the address family sepcification which 
+	in our case is the IP version (?Is this transport layer?), then the type 
+	specification (UDP), then the protocol
+3.	Fill out sockaddr struct with the address family structure and the IP address
+	, and the port number which should be TCP/IP network byte order (which is 
+	big-endian)
+4. 	Then use bind(a socket (SOCKET), pointer to socket address structure with a 
+	local address to assign to bound socket, length in bytes of calue pointed to 
+	by the name parameter) to bind a local address (?) with a socket
+6. 	Create a loop send messages
+7.	Create a sockaddr_in (used when using IP) struct for use in the next function
+8.	Create a variable to store sizeof this struct again for use in the next function
+8.	Call recvfrom(local socket, char buffer, message size, flags, previously 
+	mentioned structure, previously mentioned structure size) to get any 
+	messages that may be waiting
+9. 	If you want to send messages use sendto(local socket, char buffer, message
+	size, flags, sockaddr_in structure that contains information of the sender,
+	size of the address sockaddr_in address structure. 
+10. When ready to terminate program close the socket using closesocket(local
+	socket)
+11.	Finally WSACleanup() too clean up the Windows Socket library
+
+Look for TCP RFC image of states for TCP server socket
+Send email on about accept call using sockaddr instead of sockaddr_in

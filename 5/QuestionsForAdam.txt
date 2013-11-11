@@ -1,0 +1,12 @@
+Lab 5
+1. Should I check to see if the client is ready to receive welcome message? 
+2. Change code so client recieves message (be it a number or message) that
+	indicates that it has been accepted.
+3. Doesn't select do read and write checks for you by putting it in the FD set? 
+	Do you have to do second check after checking FD set? Can a client be both read
+	and write ready, as in can it be included in both FD sets? 
+
+General questions
+1. Check debug code? 
+2. Does welcome message stay on stack?
+3. Is coursework intrested in error handeling? 
