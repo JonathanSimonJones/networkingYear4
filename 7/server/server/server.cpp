@@ -422,6 +422,17 @@ LRESULT CALLBACK windowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			die("asynchronous socket operation failed");
 		}
 		
+		// See if it as a new client 
+		if(WSAGETSELECTEVENT(lParam) == FD_CONNECT)
+		{
+			// If it is add them
+			if(!addClientToList(wParam, clients))
+			{
+				// If it fails don't add them 
+				die("Add clients to list failed.");
+			}
+		}
+
 		Client *client = getClientViaSocketAddress(wParam, clients);
 
 		if(client != 0)
@@ -431,11 +442,14 @@ LRESULT CALLBACK windowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			{
 			case FD_ACCEPT:
 				// connect() completed.
+				// THIS IS HANDLED ABOVE
 				printf("  FD_CONNECT\n");
+				/*
 				if(!addClientToList(wParam, clients))
 				{
 					die("Add clients to list failed.");
 				}
+				*/ 
 				break;
 
 			case FD_READ:

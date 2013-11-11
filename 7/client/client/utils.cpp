@@ -66,4 +66,41 @@ void openConsoleWindow()
 
 	// Redirect the C++ IO streams (cout etc.) to the console.
 	std::ios::sync_with_stdio();
+
+
+	//Repositon the console window
+	//?Check with sampson how to move console using below function
+	SMALL_RECT consolePosition;
+	consolePosition.Left = 1980 * 0.5;
+	consolePosition.Top = 1080 * 0.5;
+	consolePosition.Right = consolePosition.Left + coninfo.dwMaximumWindowSize.X - 10;
+	consolePosition.Bottom = consolePosition.Top + coninfo.dwMaximumWindowSize.Y - 10;
+	
+	//This is what wasn't working, don't know why it just didn't move the window of the console
+	//Tried to find a update function to force windows to redraw window but couldn't find one
+	//bool check = SetConsoleWindowInfo(GetStdHandle(STD_OUTPUT_HANDLE), TRUE, &consolePosition); 
+	//DWORD error = GetLastError();
+
+	// Get handle to console so that we can use it to get info about the window enclosing the console
+	HWND hwnToConsoleWindow = GetConsoleWindow();
+	WINDOWINFO consoleWinInfo;
+	consoleWinInfo.cbSize = sizeof(WINDOWINFO);
+	//Fill out console info struct	
+	GetWindowInfo(hwnToConsoleWindow, (PWINDOWINFO) &consoleWinInfo);
+
+	// Get handle to desktop window for dimensions
+	HWND hDesktop = GetDesktopWindow();
+	WINDOWINFO desktopWin;
+	desktopWin.cbSize = sizeof(WINDOWINFO);
+	GetWindowInfo(hDesktop, (PWINDOWINFO) &desktopWin);
+	//Reposition the consoles window
+	bool check = MoveWindow(hwnToConsoleWindow,
+		desktopWin.rcWindow.top + 100,
+		0,//(desktopWin.rcWindow.right - desktopWin.rcWindow.left) * 0.5,
+		consoleWinInfo.rcWindow.right - consoleWinInfo.rcWindow.left,
+		consoleWinInfo.rcWindow.bottom - consoleWinInfo.rcWindow.top,
+		TRUE);
+
+	GetWindowInfo(hwnToConsoleWindow, (PWINDOWINFO) &consoleWinInfo);
+	int foobar = 0;
 }
