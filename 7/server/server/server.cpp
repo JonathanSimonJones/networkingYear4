@@ -30,11 +30,19 @@
 // Handle for our window.
 HWND window;
 
+// The list of clients currently connected to the server.
+class Client; //Forward decleration
+std::list<Client *> clients;
+
+bool addClientToList(UINT_PTR socket);
+
 // Prototype functions
 void registerWindowClass(HINSTANCE hInstance);
 void openWindow(HINSTANCE hInstance, int nCmdShow);
 void drawWindow();
 LRESULT CALLBACK windowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+Client* getClientViaSocketAddress(UINT_PTR socket, std::list<Client *> &clientList);
+bool addClientToList(UINT_PTR socket, std::list<Client*> &clientList);
 
 // Each instance of this class represents a connected client.
 class Client {
@@ -191,11 +199,10 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 
 	printf("Server socket listening\n");
 
-	// The list of clients currently connected to the server.
-	std::list<Client *> clients;
+
 
 	// Call async select to handle message through windows message loop
-	if (WSAAsyncSelect(serverSocket, window, WM_SOCKET, FD_CLOSE | FD_CONNECT | FD_READ) == SOCKET_ERROR)
+	if (WSAAsyncSelect(serverSocket, window, WM_SOCKET, FD_CLOSE | FD_ACCEPT | FD_READ | FD_WRITE ) == SOCKET_ERROR)
 	{
 		die("WSAAsyncSelect failed");
 	}
@@ -211,6 +218,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 
+		/*
 		// The structures that describe the set of sockets we're interested in.
 		fd_set readable, writeable;
 		FD_ZERO(&readable);
@@ -308,6 +316,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 				++it;
 			}
 		}
+		*/
 	}
 
 	// We won't actually get here, but if we did then we'd want to clean up...
@@ -412,47 +421,99 @@ LRESULT CALLBACK windowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			fprintf(stderr, "WM_SOCKET error %ld on socket %ld\n", error, (long) wParam);
 			die("asynchronous socket operation failed");
 		}
+		
+		Client *client = getClientViaSocketAddress(wParam, clients);
 
-		for (std::list<Client *>::iterator it = clients.begin(); it != clients.end(); ++it)
+		if(client != 0)
 		{
-			Client *client = *it;
+			// What kind of event was it?
+			switch (WSAGETSELECTEVENT(lParam))
+			{
+			case FD_ACCEPT:
+				// connect() completed.
+				printf("  FD_CONNECT\n");
+				if(!addClientToList(wParam, clients))
+				{
+					die("Add clients to list failed.");
+				}
+				break;
 
-			if (client->wantRead())
-			{
-				FD_SET(client->sock(), &readable);
-			}
-			if (client->wantWrite())
-			{
-				FD_SET(client->sock(), &writeable);
+			case FD_READ:
+				// It may be possible to receive.
+				printf("  FD_READ\n");
+				//tryToRead();	
+				if(client->wantRead())
+				{
+					client->doRead();
+				}
+				break;
+
+			case FD_WRITE:
+				// It may be possible to send.
+				// We will only get this notification if we've already tried to send
+				// and been told that it would block (which is different from select's behaviour).
+				printf("  FD_WRITE\n");
+				//tryToWrite();
+				if(client->wantWrite())
+				{
+					client->doWrite();
+				}
+				break;
 			}
 		}
-
-		// What kind of event was it?
-		switch (WSAGETSELECTEVENT(lParam))
+		else
 		{
-		case FD_CONNECT:
-			// connect() completed.
-			printf("  FD_CONNECT\n");
-			break;
-
-		case FD_READ:
-			// It may be possible to receive.
-			printf("  FD_READ\n");
-			//tryToRead();			
-			break;
-
-		case FD_WRITE:
-			// It may be possible to send.
-			// We will only get this notification if we've already tried to send
-			// and been told that it would block (which is different from select's behaviour).
-			printf("  FD_WRITE\n");
-			//tryToWrite();
-			break;
+			die("NO CLIENT WAS FOUND BUT WM_SOCKET WAS HIT, SHOULDNT HAPPEN\n");
 		}
-
+		// WM_SOCKET break
 		break;
 	}
-
 	// Pass messages down to the default handler.
 	return DefWindowProc(hWnd, message, wParam, lParam);
+}
+
+Client* getClientViaSocketAddress(UINT_PTR socket, std::list<Client*> &clientList)
+{
+	for (std::list<Client *>::iterator it = clientList.begin(); it != clientList.end(); ++it)
+	{
+		Client *client = *it;
+
+		if(client->sock() == socket)
+		{
+			return client;
+		}
+		
+		if(clientList.end() == it)
+		{
+			return 0;
+		}
+	}
+	return 0;
+}
+
+// Returns true if accepted socket, else returns false
+bool addClientToList(UINT_PTR socket, std::list<Client*> &clientList)
+{
+	// Accept a new connection to the server socket.
+	// This gives us back a new socket connected to the client, and
+	// also fills in an address structure with the client's address.
+	sockaddr_in clientAddr;
+	int addrSize = sizeof(clientAddr);
+	SOCKET clientSocket = accept(socket, (sockaddr *) &clientAddr, &addrSize);
+	if (clientSocket == INVALID_SOCKET)
+	{
+		printf("accept failed\n");
+		return false;
+	}
+
+	// Create a new Client object, and add it to the collection.
+	Client *client = new Client(clientSocket);
+	clientList.push_back(client);
+
+	// Send the new client a welcome message.
+	NetMessage message;
+	message.type = MT_WELCOME;
+	client->sendMessage(&message);
+
+	return true;
 }
