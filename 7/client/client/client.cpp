@@ -9,6 +9,7 @@
 #include <Windows.h>
 #include <iostream>
 #include <stdio.h>
+#include <string>
 
 #include "utils.h"
 #include "protocol.h"
@@ -61,6 +62,14 @@ void tryToWrite();
 // Entry point for the program.
 int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int nCmdShow)
 {
+	HWND parent = GetAncestor(GetConsoleWindow(), GA_ROOT);
+	//LWSTR parentName[20];
+	
+	MONITORINFO monInfo;
+	monInfo.cbSize = sizeof(MONITORINFO);
+	HMONITOR hMonitor = MonitorFromWindow(parent, MONITOR_DEFAULTTONEAREST);
+	GetMonitorInfo((HMONITOR)hMonitor, &monInfo);
+
 	openConsoleWindow();
 	startWinSock();
 
@@ -124,11 +133,22 @@ void registerWindowClass(HINSTANCE hInstance)
 // Create and open our window.
 void openWindow(HINSTANCE hInstance, int nCmdShow)
 {
+	// Get console window for position of new Window
+	RECT consoleWindowRect;
+	if(getConsoleInit())
+	{
+		getConsoleWindowRect(consoleWindowRect);
+	}
+	else
+	{
+		consoleWindowRect.left = 0;
+		consoleWindowRect.bottom = 500;
+	}
 
 	window = CreateWindow (	L"WindowClass",
 							L"Client",
 							WS_OVERLAPPEDWINDOW,
-							600, 600,
+							consoleWindowRect.left, consoleWindowRect.bottom,
 							400, 200,
 							NULL,
 							NULL,

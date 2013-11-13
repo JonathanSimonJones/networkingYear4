@@ -13,4 +13,15 @@ void startWinSock();
 // standard input, output and error streams to it.
 void openConsoleWindow();
 
+//! Currently forces specified in the function
+void moveConsoleToCenterOfDestop();
+
+void getConsoleWindowRect(RECT &rect);
+
+// See if the console has been init
+bool getConsoleInit();
+
+// 
+void GetProcessName(DWORD processID);
+
 #endif
