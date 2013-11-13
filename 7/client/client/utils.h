@@ -3,6 +3,8 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <vector>
+
 // Print an error message and die.
 void die(const char *message);
 
@@ -23,5 +25,17 @@ bool getConsoleInit();
 
 // 
 void GetProcessName(DWORD processID);
+
+BOOL GetParentPID( DWORD dwParentId, DWORD &dwChildProcessId, bool &bChildProcess, std::vector<DWORD> &listParentIds);
+
+ULONG_PTR GetParentProcessId(); // By Napalm @ NetCore2K
+
+struct paramsForEnumWindows
+{
+	ULONG_PTR processId;
+	HWND windowHwnd;
+};
+
+BOOL CALLBACK CheckHandleAgainstProcess(HWND hWnd, LPARAM lParam);
 
 #endif

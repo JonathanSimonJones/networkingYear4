@@ -12,6 +12,9 @@
 #include <tchar.h>
 #include <cstring>
 #include <wchar.h>
+#include <vector>
+#include <TlHelp32.h>
+
 
 #include "utils.h"
 
@@ -80,6 +83,41 @@ void openConsoleWindow()
 
 void moveConsoleToCenterOfDestop()
 {
+
+	ULONG_PTR parentProcessId = GetParentProcessId();
+
+	DWORD idNeeded = parentProcessId;
+
+	HANDLE processHandle = OpenProcess(PROCESS_QUERY_INFORMATION, TRUE, idNeeded);
+
+	paramsForEnumWindows passValue;
+	passValue.processId = parentProcessId;
+	BOOL enumSuccess = EnumDesktopWindows(GetThreadDesktop(GetCurrentThreadId()),CheckHandleAgainstProcess, (LPARAM)&passValue);
+
+	WINDOWINFO visualStudioWin;
+	visualStudioWin.cbSize = sizeof(WINDOWINFO);
+	GetWindowInfo(passValue.windowHwnd, (PWINDOWINFO) &visualStudioWin);
+
+	DWORD val = GetLastError();
+
+	HWND consoleWindowCheck = GetConsoleWindow();
+
+	//DWORD consoleProcessID = GetProcessId(
+	DWORD parentId = 0, childProcessId = 0;
+	bool childProcess;
+	std::vector<DWORD> parentIds;
+	BOOL errorforGetParentID = GetParentPID( parentId, childProcessId, childProcess, parentIds);
+
+	
+	DWORD ProcessId;
+	DWORD threadId = GetWindowThreadProcessId(GetConsoleWindow(), &ProcessId);
+
+
+
+
+
+	HANDLE consoleProcess = CreateToolhelp32Snapshot(TH32CS_SNAPALL, 0);
+
 	DWORD idList[1024];
 	DWORD bytesReturned;
 	BOOL error = EnumProcesses(idList, sizeof(idList), &bytesReturned);
@@ -229,4 +267,122 @@ void GetProcessName(DWORD processID)
 
 	// Release the handle to the process
 	CloseHandle(hProcess);
+}
+
+// change this method signature according to your requirements 
+BOOL GetParentPID( DWORD dwParentId, DWORD &dwChildProcessId, bool &bChildProcess, std::vector<DWORD> &listParentIds) 
+{ 
+	OSVERSIONINFO osver ; 
+	HINSTANCE hInstLib ;
+	HANDLE hSnapShot ; 
+	BOOL bContinue ;  
+
+	// ToolHelp Function Pointers. 
+	HANDLE (WINAPI *lpfCreateToolhelp32Snapshot)(DWORD,DWORD) ; 
+	BOOL (WINAPI *lpfProcess32First)(HANDLE,LPPROCESSENTRY32) ;
+	BOOL (WINAPI *lpfProcess32Next)(HANDLE,LPPROCESSENTRY32) ; 
+
+	hInstLib = LoadLibraryA( "Kernel32.DLL" ) ; 
+	if( hInstLib == NULL ) { return false; }  
+
+	// Get procedure addresses. 
+	lpfCreateToolhelp32Snapshot = (HANDLE(WINAPI *)(DWORD,DWORD)) GetProcAddress( hInstLib, "CreateToolhelp32Snapshot" ) ; 
+	lpfProcess32First= (BOOL(WINAPI *)(HANDLE,LPPROCESSENTRY32)) GetProcAddress( hInstLib, "Process32First" ) ; 
+	lpfProcess32Next= (BOOL(WINAPI *)(HANDLE,LPPROCESSENTRY32)) GetProcAddress( hInstLib, "Process32Next" ) ; 
+
+	if( lpfProcess32Next == NULL || lpfProcess32First == NULL || lpfCreateToolhelp32Snapshot == NULL ) 
+	{ 
+		FreeLibrary( hInstLib ) ; 
+		return false ; 
+	}  
+
+	// Get a handle to a Toolhelp snapshot of the systems 
+	// processes. 
+	hSnapShot = lpfCreateToolhelp32Snapshot( TH32CS_SNAPPROCESS, 0 ) ; 
+	if( hSnapShot == INVALID_HANDLE_VALUE ) 
+	{ 
+		FreeLibrary( hInstLib ) ; 
+		return false ; 
+	}  
+
+	PROCESSENTRY32 procentry;  
+
+	// Get the first process' information. 
+	memset((LPVOID)&procentry,0,sizeof(PROCESSENTRY32)); 
+	procentry.dwSize = sizeof(PROCESSENTRY32); 
+	bContinue = lpfProcess32First( hSnapShot, &procentry );  
+	DWORD pid = 0; 
+
+	// While there are processes, keep looping. 
+	DWORD crtpid= dwParentId; 
+
+	while( bContinue ) 
+	{ 
+		if(procentry.th32ParentProcessID == dwParentId) 
+		{ 
+			// add the ids of the processes with the parent id 
+			listParentIds.push_back(procentry.th32ProcessID); 
+		}  
+
+		procentry.dwSize = sizeof(PROCESSENTRY32) ; 
+		bContinue = lpfProcess32Next( hSnapShot, &procentry );  
+	}//while ends   
+
+	// Free the library. 
+	FreeLibrary( hInstLib ) ; 
+	return true; 
+}
+
+ULONG_PTR GetParentProcessId() // By Napalm @ NetCore2K
+{
+	ULONG_PTR pbi[6];
+	ULONG ulSize = 0;
+	LONG (WINAPI *NtQueryInformationProcess)(HANDLE ProcessHandle, ULONG ProcessInformationClass, PVOID ProcessInformation, ULONG ProcessInformationLength, PULONG ReturnLength); 
+	*(FARPROC *)&NtQueryInformationProcess = GetProcAddress(LoadLibraryA("NTDLL.DLL"), "NtQueryInformationProcess");
+
+	if(NtQueryInformationProcess){
+		if(NtQueryInformationProcess(GetCurrentProcess(), 0, &pbi, sizeof(pbi), &ulSize) >= 0 && ulSize == sizeof(pbi))
+			return pbi[5];
+	}
+	return (ULONG_PTR)-1;
+}
+
+int globalCounterTwo = 0;
+std::vector<HWND> listOfWindowHwnds;
+
+BOOL CALLBACK CheckHandleAgainstProcess(HWND hWnd, LPARAM lParam)
+{
+	DWORD processId;
+	DWORD errorGetWindowThreadId = GetWindowThreadProcessId(hWnd, &processId);
+
+    paramsForEnumWindows passedInValues;
+	passedInValues.processId = ((paramsForEnumWindows*)lParam)->processId;
+	DWORD compare = (DWORD)passedInValues.processId;
+	if(processId == compare)
+	{
+		printf("Found the right window!!!!!!!!!!!!!!\n");
+		((paramsForEnumWindows*)lParam)->windowHwnd = hWnd;
+		//listOfWindowHwnds.push_back(hWnd);
+		//return false;
+		globalCounterTwo++;
+	}
+
+	if(listOfWindowHwnds.begin() == listOfWindowHwnds.end())
+	{
+		//listOfWindowHwnds.push_back(0);
+	}
+
+	for(std::vector<HWND>::iterator it=listOfWindowHwnds.begin(); it != listOfWindowHwnds.end() ; it++)
+	{
+		if((*it) == hWnd)
+		{
+			//return false;
+		}
+		else
+		{
+			//listOfWindowHwnds.push_back(hWnd);
+		}
+	}
+
+	return true;
 }
