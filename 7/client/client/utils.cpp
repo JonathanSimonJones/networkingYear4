@@ -98,9 +98,11 @@ void moveConsoleToCenterOfDestop()
 	visualStudioWin.cbSize = sizeof(WINDOWINFO);
 	GetWindowInfo(passValue.windowHwnd, (PWINDOWINFO) &visualStudioWin);
 
-	DWORD val = GetLastError();
 
-	HWND consoleWindowCheck = GetConsoleWindow();
+
+	//DWORD val = GetLastError();
+
+	//HWND consoleWindowCheck = GetConsoleWindow();
 
 	//DWORD consoleProcessID = GetProcessId(
 	DWORD parentId = 0, childProcessId = 0;
@@ -347,9 +349,6 @@ ULONG_PTR GetParentProcessId() // By Napalm @ NetCore2K
 	return (ULONG_PTR)-1;
 }
 
-int globalCounterTwo = 0;
-std::vector<HWND> listOfWindowHwnds;
-
 BOOL CALLBACK CheckHandleAgainstProcess(HWND hWnd, LPARAM lParam)
 {
 	DWORD processId;
@@ -361,26 +360,13 @@ BOOL CALLBACK CheckHandleAgainstProcess(HWND hWnd, LPARAM lParam)
 	if(processId == compare)
 	{
 		printf("Found the right window!!!!!!!!!!!!!!\n");
-		((paramsForEnumWindows*)lParam)->windowHwnd = hWnd;
-		//listOfWindowHwnds.push_back(hWnd);
-		//return false;
-		globalCounterTwo++;
-	}
 
-	if(listOfWindowHwnds.begin() == listOfWindowHwnds.end())
-	{
-		//listOfWindowHwnds.push_back(0);
-	}
+		LONG windowStyle = GetWindowLong(hWnd, GWL_STYLE);
 
-	for(std::vector<HWND>::iterator it=listOfWindowHwnds.begin(); it != listOfWindowHwnds.end() ; it++)
-	{
-		if((*it) == hWnd)
+		if(windowStyle & WS_VISIBLE)
 		{
-			//return false;
-		}
-		else
-		{
-			//listOfWindowHwnds.push_back(hWnd);
+			((paramsForEnumWindows*)lParam)->windowHwnd = hWnd;
+			return false;
 		}
 	}
 
