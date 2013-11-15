@@ -353,11 +353,22 @@ void registerWindowClass(HINSTANCE hInstance)
 // Create and open our window.
 void openWindow(HINSTANCE hInstance, int nCmdShow)
 {
+	// Get console window for position of new Window
+	RECT consoleWindowRect;
+	if(getConsoleInit())
+	{
+		getConsoleWindowRect(consoleWindowRect);
+	}
+	else
+	{
+		consoleWindowRect.left = 0;
+		consoleWindowRect.bottom = 500;
+	}
 
 	window = CreateWindow (	L"WindowClass",
-							L"Server",
+							L"Client",
 							WS_OVERLAPPEDWINDOW,
-							600, 600,
+							consoleWindowRect.left, consoleWindowRect.bottom,
 							400, 200,
 							NULL,
 							NULL,
