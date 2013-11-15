@@ -15,8 +15,9 @@ void startWinSock();
 // standard input, output and error streams to it.
 void openConsoleWindow();
 
-//! Currently forces specified in the function
 void moveConsoleToCenterOfDestop();
+
+void moveConsoleToVisualStudioInstance();
 
 void getConsoleWindowRect(RECT &rect);
 
@@ -36,6 +37,6 @@ struct paramsForEnumWindows
 	HWND windowHwnd;
 };
 
-BOOL CALLBACK CheckHandleAgainstProcess(HWND hWnd, LPARAM lParam);
+BOOL CALLBACK EnumWindowsCallbackGetHwndFromProcessIdOfActiveWindow(HWND hWnd, LPARAM lParam);
 
 #endif

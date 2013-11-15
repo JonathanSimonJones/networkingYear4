@@ -76,66 +76,13 @@ void openConsoleWindow()
 	// Redirect the C++ IO streams (cout etc.) to the console.
 	std::ios::sync_with_stdio();
 
-	moveConsoleToCenterOfDestop();
+	moveConsoleToVisualStudioInstance();
 
 	consoleInit = true;
 }
 
 void moveConsoleToCenterOfDestop()
 {
-
-	ULONG_PTR parentProcessId = GetParentProcessId();
-
-	DWORD idNeeded = parentProcessId;
-
-	HANDLE processHandle = OpenProcess(PROCESS_QUERY_INFORMATION, TRUE, idNeeded);
-
-	paramsForEnumWindows passValue;
-	passValue.processId = parentProcessId;
-	BOOL enumSuccess = EnumDesktopWindows(GetThreadDesktop(GetCurrentThreadId()),CheckHandleAgainstProcess, (LPARAM)&passValue);
-
-	WINDOWINFO visualStudioWin;
-	visualStudioWin.cbSize = sizeof(WINDOWINFO);
-	GetWindowInfo(passValue.windowHwnd, (PWINDOWINFO) &visualStudioWin);
-
-
-
-	//DWORD val = GetLastError();
-
-	//HWND consoleWindowCheck = GetConsoleWindow();
-
-	//DWORD consoleProcessID = GetProcessId(
-	DWORD parentId = 0, childProcessId = 0;
-	bool childProcess;
-	std::vector<DWORD> parentIds;
-	BOOL errorforGetParentID = GetParentPID( parentId, childProcessId, childProcess, parentIds);
-
-	
-	DWORD ProcessId;
-	DWORD threadId = GetWindowThreadProcessId(GetConsoleWindow(), &ProcessId);
-
-
-
-
-
-	HANDLE consoleProcess = CreateToolhelp32Snapshot(TH32CS_SNAPALL, 0);
-
-	DWORD idList[1024];
-	DWORD bytesReturned;
-	BOOL error = EnumProcesses(idList, sizeof(idList), &bytesReturned);
-
-	DWORD numberOfProcess = bytesReturned / sizeof(DWORD);
-
-	for( int i = 0; i < numberOfProcess; i++)
-	{
-		if( idList[i] != 0)
-		{
-			GetProcessName( idList[i]);
-		}
-	}
-
-	char parentName[20];
-	GetWindowText(GetConsoleWindow(), (LPWSTR)parentName, 20);
 	//Repositon the console window
 	//?Check with sampson how to move console using below function
 	//SMALL_RECT consolePosition;
@@ -217,9 +164,54 @@ void moveConsoleToCenterOfDestop()
 		width,
 		height,
 		TRUE);
-
-	GetWindowInfo(GetConsoleWindow(), (PWINDOWINFO) &consoleWinInfo);
 }
+
+void moveConsoleToVisualStudioInstance()
+{
+	// Get parent processId of console
+	ULONG_PTR parentProcessId = GetParentProcessId();
+
+	// Create struct to pass parentProcessId to enum window callback while also using struct to get a hWnd for instance of visual studio that created the console
+	paramsForEnumWindows winEnumParams;
+	winEnumParams.processId = parentProcessId;
+	// Iterate over all open windows to get hWnd for visual studio instance
+	BOOL enumSuccess = EnumDesktopWindows(GetThreadDesktop(GetCurrentThreadId()),EnumWindowsCallbackGetHwndFromProcessIdOfActiveWindow, (LPARAM)&winEnumParams);
+
+	// Get info of instance of visual studio referenced by hWnd returned through EnumDesktopWindows
+	WINDOWINFO visualStudioWin;
+	visualStudioWin.cbSize = sizeof(WINDOWINFO);
+	// Get window info from handle
+	GetWindowInfo(winEnumParams.windowHwnd, (PWINDOWINFO) &visualStudioWin);
+
+	// Get handle to console so that we can use it to get info about the window enclosing the console
+	WINDOWINFO consoleWinInfo;
+	consoleWinInfo.cbSize = sizeof(WINDOWINFO);
+	//Fill out console info struct	
+	GetWindowInfo(GetConsoleWindow(), (PWINDOWINFO) &consoleWinInfo);
+
+	// For multiple screen set up get dimensions of single monitor
+	RECT singleScreenRec;
+	SystemParametersInfo(SPI_GETWORKAREA, 0, &singleScreenRec, 0);
+
+	// Vars for console window
+	int top = visualStudioWin.rcWindow.top;
+	int left = visualStudioWin.rcWindow.left;
+	int width = consoleWinInfo.rcWindow.right - consoleWinInfo.rcWindow.left;
+	int height = consoleWinInfo.rcWindow.bottom - consoleWinInfo.rcWindow.top;
+	int offsetTop = 100;
+	int offsetLeft = 100;
+	
+	//Reposition the consoles window
+	bool check = MoveWindow(GetConsoleWindow(),
+		left + offsetLeft,
+		top + offsetTop,
+		width,
+		height,
+		TRUE);
+
+	return;
+}
+
 
 void getConsoleWindowRect(RECT &rect)
 {
@@ -236,7 +228,7 @@ bool getConsoleInit()
 	return consoleInit;
 }
 
-int gProcessCount;
+
 void GetProcessName(DWORD processID)
 {
 	TCHAR szProcessName[MAX_PATH] = TEXT("<unknown>");
@@ -260,9 +252,9 @@ void GetProcessName(DWORD processID)
 
 	if(wcscmp(szProcessName, compareName) == 0)//== L"devenv.exe" )
 	{
-		gProcessCount += 1;
-		//printf("Found string finally");
-		//return;
+
+		printf("Found string finally");
+		return;
 	}
 
 	_tprintf( TEXT("%s (PID: %u)\n"), szProcessName, processID );
@@ -349,26 +341,34 @@ ULONG_PTR GetParentProcessId() // By Napalm @ NetCore2K
 	return (ULONG_PTR)-1;
 }
 
-BOOL CALLBACK CheckHandleAgainstProcess(HWND hWnd, LPARAM lParam)
+BOOL CALLBACK EnumWindowsCallbackGetHwndFromProcessIdOfActiveWindow(HWND hWnd, LPARAM lParam)
 {
+	// Get process id of handle to window passed to function
 	DWORD processId;
 	DWORD errorGetWindowThreadId = GetWindowThreadProcessId(hWnd, &processId);
 
-    paramsForEnumWindows passedInValues;
-	passedInValues.processId = ((paramsForEnumWindows*)lParam)->processId;
-	DWORD compare = (DWORD)passedInValues.processId;
+	// Get process id to compare with from lParam
+    paramsForEnumWindows pToCompareProcessIDandReturnHwnd;
+	pToCompareProcessIDandReturnHwnd.processId = ((paramsForEnumWindows*)lParam)->processId;
+	DWORD compare = (DWORD)pToCompareProcessIDandReturnHwnd.processId;
+
+	// Compare process ids to check for match with current open windows
 	if(processId == compare)
 	{
-		printf("Found the right window!!!!!!!!!!!!!!\n");
-
+		// Get the style of the window
 		LONG windowStyle = GetWindowLong(hWnd, GWL_STYLE);
 
+		// Check if the window is visible as this is how we identify the visual studio instance
 		if(windowStyle & WS_VISIBLE)
 		{
+			// Store the handle to the window so that it can be recieved outside of the function
 			((paramsForEnumWindows*)lParam)->windowHwnd = hWnd;
+
+			// Let enum windows know that we want to stop enumerating as we have found the correct window handle
 			return false;
 		}
 	}
 
+	// Carry on as we have not found the correct handle to the window
 	return true;
 }
