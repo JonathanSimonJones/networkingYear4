@@ -8,7 +8,8 @@ enum MessageType
 {
 	MT_UNKNOWN = 0,
 	MT_WELCOME = 1,
-	MT_KEYPRESS = 2
+	MT_KEYPRESS = 2,
+	MT_QUIT = 3
 };
 
 // The message structure.

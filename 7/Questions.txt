@@ -1,1 +1,4 @@
 1. Utils.cpp: Check moving console code
+2. Check quit functionality
+   Should I handle	the	quit message from the error at WASGETSELECTERROR?
+   Reposition WSAGETSELECTERROR? 

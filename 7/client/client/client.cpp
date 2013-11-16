@@ -191,12 +191,43 @@ LRESULT CALLBACK windowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 		PostQuitMessage(0);
 		break;
 
+	case WM_QUIT:
+		{
+			if(connected)
+			{
+				/*
+				NetMessage message;
+				message.type = MT_QUIT;
+				message.data = MT_QUIT;
+
+				sendMessage(&message);
+				*/
+				
+			}
+		}
+		break;
+
 	case WM_KEYDOWN:
 		// A keypress.
 		switch(wParam)
 		{
 		case VK_ESCAPE:
-			PostQuitMessage(0);
+			{
+				if(connected)
+				{
+					/*
+					NetMessage message;
+					message.type = MT_QUIT;
+					message.data = MT_QUIT;
+
+					sendMessage(&message);
+					*/
+					if(!closesocket(sock))
+					{
+						PostQuitMessage(0);
+					}
+				}
+			}
 			break;
 
 		case 'C':
@@ -385,4 +416,10 @@ void sendMessage(const NetMessage *message)
 
 	// Try sending it immediately.
 	tryToWrite();
+}
+
+// Close application
+void clientExit()
+{
+
 }

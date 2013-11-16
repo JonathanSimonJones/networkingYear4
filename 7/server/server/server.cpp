@@ -43,6 +43,7 @@ void drawWindow();
 LRESULT CALLBACK windowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 Client* getClientViaSocketAddress(UINT_PTR socket, std::list<Client *> &clientList);
 bool addClientToList(UINT_PTR socket, std::list<Client*> &clientList);
+bool removeClient(Client *client_, std::list<Client*> &clientList);
 
 // Each instance of this class represents a connected client.
 class Client {
@@ -50,7 +51,10 @@ public:
 	// Constructor.
 	// sock: the socket that we've accepted the client connection on.
 	Client(SOCKET sock)
-		: sock_(sock), recv_count_(0), send_count_(0)
+		: sock_(sock)
+		, recv_count_(0)
+		, send_count_(0)
+		, clientWantsQuit(false)
 	{
 		printf("New connection\n");
 	}
@@ -147,6 +151,17 @@ public:
 		return false;
 	}
 
+	bool setClose(void)
+	{
+		clientWantsQuit = true;
+		return true;
+	}
+
+	bool getClose(void)
+	{
+		return clientWantsQuit;
+	}
+
 private:
 	SOCKET sock_;
 
@@ -157,6 +172,8 @@ private:
 	// Buffer for outgoing messages.
 	char send_buf_[100 * sizeof NetMessage];
 	int send_count_;
+
+	bool clientWantsQuit;
 };
 
 // Entry point for the program.
@@ -202,7 +219,7 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 
 
 	// Call async select to handle message through windows message loop
-	if (WSAAsyncSelect(serverSocket, window, WM_SOCKET, FD_CLOSE | FD_ACCEPT | FD_READ | FD_WRITE ) == SOCKET_ERROR)
+	if (WSAAsyncSelect(serverSocket, window, WM_SOCKET, FD_CLOSE | FD_ACCEPT | FD_READ | FD_WRITE | FD_CONNECT ) == SOCKET_ERROR)
 	{
 		die("WSAAsyncSelect failed");
 	}
@@ -217,106 +234,6 @@ int WINAPI WinMain (HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine
 		// Windows message loop
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
-
-		/*
-		// The structures that describe the set of sockets we're interested in.
-		fd_set readable, writeable;
-		FD_ZERO(&readable);
-		FD_ZERO(&writeable);
-
-		// Add the server socket, which will become "readable" if there's a new
-		// connection to accept.
-		FD_SET(serverSocket, &readable);
-
-		// Add all of the connected clients' sockets.
-		for (std::list<Client *>::iterator it = clients.begin(); it != clients.end(); ++it)
-		{
-			Client *client = *it;
-
-			if (client->wantRead())
-			{
-				FD_SET(client->sock(), &readable);
-			}
-			if (client->wantWrite())
-			{
-				FD_SET(client->sock(), &writeable);
-			}
-		}
-
-		// The structure that describes how long to wait for something to happen.
-		timeval timeout;
-		// We want a 2.5-second timeout.
-		timeout.tv_sec = 2;
-		timeout.tv_usec = 500000;
-
-		// Wait for one of the sockets to become readable.
-		// (We can only get away with passing 0 for the first argument here because
-		// we're on Windows -- other sockets implementations need a proper value there.)
-		int count = select(0, &readable, &writeable, NULL, &timeout);
-		if (count == SOCKET_ERROR)
-		{
-			die("select failed");
-		}
-		printf("%d clients; %d sockets are ready\n", clients.size(), count);
-		// readable now tells us which sockets are ready.
-		// If count == 0 (i.e. no sockets are ready) then the timeout occurred.
-
-		// Is there a new connection to accept?
-		if (FD_ISSET(serverSocket, &readable))
-		{
-			// Accept a new connection to the server socket.
-			// This gives us back a new socket connected to the client, and
-			// also fills in an address structure with the client's address.
-			sockaddr_in clientAddr;
-			int addrSize = sizeof(clientAddr);
-			SOCKET clientSocket = accept(serverSocket, (sockaddr *) &clientAddr, &addrSize);
-			if (clientSocket == INVALID_SOCKET)
-			{
-				printf("accept failed\n");
-				continue;
-			}
-
-			// Create a new Client object, and add it to the collection.
-			Client *client = new Client(clientSocket);
-			clients.push_back(client);
-
-			// Send the new client a welcome message.
-			NetMessage message;
-			message.type = MT_WELCOME;
-			client->sendMessage(&message);
-		}
-
-		// Check each of the clients.
-		for (std::list<Client *>::iterator it = clients.begin(); it != clients.end(); )  // note no ++it here
-		{
-			Client *client = *it;
-			bool dead = false;
-
-			// Is there data to read from this client's socket?
-			if (FD_ISSET(client->sock(), &readable))
-			{
-				dead |= client->doRead();
-			}
-
-			// Can we write to this client's socket?
-			if (FD_ISSET(client->sock(), &writeable))
-			{
-				dead |= client->doWrite();
-			}
-
-			if (dead)
-			{
-				// The client said it was dead -- so free the object,
-				// and remove it from the clients list.
-				delete client;
-				it = clients.erase(it);
-			}
-			else
-			{
-				++it;
-			}
-		}
-		*/
 	}
 
 	// We won't actually get here, but if we did then we'd want to clean up...
@@ -434,7 +351,8 @@ LRESULT CALLBACK windowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 		}
 		
 		// See if it as a new client 
-		if(WSAGETSELECTEVENT(lParam) == FD_CONNECT)
+		//! This should contain both messages
+		if(WSAGETSELECTEVENT(lParam) == FD_CONNECT || WSAGETSELECTEVENT(lParam) == FD_ACCEPT)
 		{
 			// If it is add them
 			if(!addClientToList(wParam, clients))
@@ -454,7 +372,8 @@ LRESULT CALLBACK windowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 			case FD_ACCEPT:
 				// connect() completed.
 				// THIS IS HANDLED ABOVE
-				printf("  FD_CONNECT\n");
+				printf("  FD_ACCEPT\n");
+				die("FD_CONNECT is not currently handled, don't think you should have got this message :(!\n");
 				/*
 				if(!addClientToList(wParam, clients))
 				{
@@ -484,11 +403,32 @@ LRESULT CALLBACK windowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 					client->doWrite();
 				}
 				break;
-			}
+
+			case FD_CLOSE:
+				{
+					printf("Got close message from socket\n");
+
+					client->setClose();
+
+					if(client->getClose())
+					{
+						if(!removeClient(client, clients))
+						{
+							die("Removed client failed, client doesn't exist within the list.\n");
+						}
+						else
+						{
+							printf("Client on sock %ld has been removed from client list.\n", (long) wParam);
+						}
+					}
+
+				}// END FD_CLOS
+				break;
+			}// END switch (WSAGETSELECTEVENT(lParam))
 		}
 		else
 		{
-			die("NO CLIENT WAS FOUND BUT WM_SOCKET WAS HIT, SHOULDNT HAPPEN\n");
+			//die("NO CLIENT WAS FOUND BUT WM_SOCKET WAS HIT, SHOULDNT HAPPEN\n");
 		}
 		// WM_SOCKET break
 		break;
@@ -541,4 +481,21 @@ bool addClientToList(UINT_PTR socket, std::list<Client*> &clientList)
 	client->sendMessage(&message);
 
 	return true;
+}
+
+bool removeClient(Client *client_, std::list<Client*> &clientList)
+{
+	for (std::list<Client *>::iterator it = clientList.begin(); it != clientList.end(); ++it)
+	{
+		Client *client = *it;
+
+		if(client->sock() == client_->sock())
+		{
+			clientList.remove(*it);
+			
+			return true;
+		}
+	}
+
+	return false;
 }

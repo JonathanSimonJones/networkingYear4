@@ -14,7 +14,7 @@
 #include <wchar.h>
 #include <vector>
 #include <TlHelp32.h>
-
+#include <winternl.h>
 
 #include "utils.h"
 
