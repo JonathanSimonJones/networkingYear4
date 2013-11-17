@@ -24,9 +24,6 @@ void getConsoleWindowRect(RECT &rect);
 // See if the console has been init
 bool getConsoleInit();
 
-// 
-void GetProcessName(DWORD processID);
-
 BOOL GetParentPID( DWORD dwParentId, DWORD &dwChildProcessId, bool &bChildProcess, std::vector<DWORD> &listParentIds);
 
 ULONG_PTR GetParentProcessId(); // By Napalm @ NetCore2K

@@ -30,6 +30,7 @@ void die(const char *message) {
 	// Debug build -- drop the program into the debugger.
 	abort();
 #else
+#define _DEBUG 0
 	exit(1);
 #endif
 }
@@ -76,7 +77,12 @@ void openConsoleWindow()
 	// Redirect the C++ IO streams (cout etc.) to the console.
 	std::ios::sync_with_stdio();
 
-	moveConsoleToVisualStudioInstance();
+	if(_DEBUG)
+	{
+		moveConsoleToVisualStudioInstance();
+	}
+
+	
 
 	consoleInit = true;
 }
@@ -226,41 +232,6 @@ void getConsoleWindowRect(RECT &rect)
 bool getConsoleInit()
 {
 	return consoleInit;
-}
-
-
-void GetProcessName(DWORD processID)
-{
-	TCHAR szProcessName[MAX_PATH] = TEXT("<unknown>");
-
-	// Get a handle to the process 
-	HANDLE hProcess = OpenProcess ( PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processID);
-
-	// Get the Process Name
-	if (NULL != hProcess)
-	{
-		HMODULE hMod;
-		DWORD cbNeeded;
-
-		if ( EnumProcessModules( hProcess, &hMod, sizeof(hMod), &cbNeeded) )
-		{
-			GetModuleBaseName (hProcess, hMod, szProcessName, sizeof(szProcessName)/sizeof(TCHAR) );
-		}
-	}
-
-	TCHAR compareName[MAX_PATH] = TEXT("devenv.exe");
-
-	if(wcscmp(szProcessName, compareName) == 0)//== L"devenv.exe" )
-	{
-
-		printf("Found string finally");
-		return;
-	}
-
-	_tprintf( TEXT("%s (PID: %u)\n"), szProcessName, processID );
-
-	// Release the handle to the process
-	CloseHandle(hProcess);
 }
 
 // change this method signature according to your requirements 
